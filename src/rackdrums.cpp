@@ -81,11 +81,11 @@ enum ParamIds {
 
 	SchmittTrigger loadsampleTrigger[16];
 	SchmittTrigger samplay[16];
- 	int loader = 0;
+ 	int loader = -1;
 
 	rackdrums() : Module(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS) {}
 	void step() override;
-	void loadSample(std::string path);
+	void loadSample(std::string path,int loa);
 
 	// persistence
 /////////////////////////////////////////////////////////////////////JSON write	
@@ -114,6 +114,12 @@ enum ParamIds {
 
 		// loop_state
 		json_object_set_new(rootJ, "loop", json_integer(loop_state));
+
+		// song_state
+		json_object_set_new(rootJ, "song", json_integer(song_state));
+
+		// ON_STATE
+		json_object_set_new(rootJ, "on", json_integer(ON_STATE));
 
 		// leds
 		json_t *ledsJ = json_array();
@@ -154,15 +160,18 @@ enum ParamIds {
 					if ((ppp[i]!= ';') & (j<16)) 
 						lastPath[j]=lastPath[j]+ppp[i];
 						else j=j+1;
+					if (j>15) i =10000;
 					};
 			for (int k=0; k<16 ; k++){
-					loader=k; 
-					loadSample(lastPath[k]);
+					//loader=k; 
+					loadSample(lastPath[k].c_str(),k);
 					};
 				
 		};
 
-		loader=0; songd[2]=0;songd[3]=0;
+
+
+		//loader=-1; songd[2]=0;songd[3]=0;
 
 		// tempi_ind
 		json_t *tempJ = json_object_get(rootJ, "temp");
@@ -194,6 +203,20 @@ enum ParamIds {
 		if (loopJ)
 			loop_state = json_integer_value(loopJ);
 
+		// song_state
+		json_t *songJ = json_object_get(rootJ, "song");
+		if (songJ)
+			song_state = json_integer_value(songJ);
+		if (song_state == 2) {
+			song_pos=0;pas=0;
+			measure = song_m[song_pos];
+			group = song_g[song_pos];
+			}
+
+		// ON_STATE
+		json_t *onJ = json_object_get(rootJ, "on");
+		if (onJ)
+			ON_STATE = json_integer_value(onJ);
 
 		// leds
 		json_t *ledsJ = json_object_get(rootJ, "leds");
@@ -255,16 +278,16 @@ struct rackdrumsWidget : ModuleWidget {
 };
 
 ////////////////////////////////////////////////////////////////////////////////rackdrums loadSample
-void rackdrums::loadSample(std::string xpath) {
+void rackdrums::loadSample(std::string xpath,int loa) {
 
-	if (audioFile[loader].load (xpath.c_str())) {
-		fileLoaded[loader] = true;
-		fileDesc[loader] = stringFilename(xpath);
-		lastPath[loader] = xpath;
+	if (audioFile[loa].load (xpath.c_str())) {
+		fileLoaded[loa] = true;
+		fileDesc[loa] = stringFilename(xpath);
+		lastPath[loa] = xpath;
 	}
 	else {
 		
-		fileLoaded[loader] = false;
+		fileLoaded[loa] = false;
 	}
 } 
 
@@ -298,9 +321,12 @@ if (inputs[UP_INPUT].active!=true) {
 /////////////////////////////////////////////////////////////////////INPUTS
 	if (rstTrigger.process(inputs[RST_INPUT].value))
 			{
-			pas = 0; song_pos=0;
-			measure = song_m[song_pos];
-			group = song_g[song_pos];
+			pas = 0;
+			if (song_state==2) {
+				song_pos=0;
+				measure = song_m[song_pos];
+				group = song_g[song_pos];
+				}
 			toc = 47u;toc_phase = 1.f;
 			}
 
@@ -375,12 +401,14 @@ if (inputs[UP_INPUT].active!=true) {
 			if (songTrigger[1].process(params[SONG_PARAM+1].value)) {
 					if (song_end!=0) {
 							if (song_state !=2) {
-								song_state=2;
-								ON_STATE=1;
-								song_pos=0;
+								if ((ON_STATE==0) & (inputs[UP_INPUT].active!=true)) {
 								pas=0;
+								song_pos=0;
 								measure = song_m[song_pos];
 								group = song_g[song_pos];
+								} else song_pos=-1;
+								song_state=2;
+								ON_STATE=1;
 							} else {song_state=0;ON_STATE=0;};
 							};
 					};
@@ -403,7 +431,7 @@ if (inputs[UP_INPUT].active!=true) {
 
 			if (playTrigger.process(params[PLAY_PARAM].value)) {
 					if (ON_STATE == 0) {ON_STATE = 1;pas=0;} 
-						else {ON_STATE = 0; if (song_state==2) song_state=0;};
+						else {if (song_state==2) song_state=0;else ON_STATE = 0;};
 					};
 			if (lapinTrigger.process(params[LAPIN_PARAM].value)) {
 					if (tempi_ind<29) tempi_ind+=1 ;  
@@ -438,7 +466,7 @@ if (inputs[UP_INPUT].active!=true) {
 for (int i=0; i<16; i++) {
 	if (loadsampleTrigger[i].process(params[LOAD_PARAM+i].value))
 		{
-		loader=i+1;
+		loader=i;
 
 		};
 
@@ -483,20 +511,20 @@ void rackdrumsWidget::step() {
 	rackdrums *macdr = dynamic_cast<rackdrums*>(module);
 	widgetToMove->box.pos.x = -200 + 210* int(macdr->play_visible); 
 
-	if(macdr->loader!=0)
+	if(macdr->loader!=-1)
 		{
-		macdr->loader=macdr->loader-1;
+		//macdr->loader=macdr->loader-1;
 		std::string dir = macdr->lastPath[macdr->loader].empty() ? assetLocal("") : stringDirectory(macdr->lastPath[macdr->loader]);
 		char *path = osdialog_file(OSDIALOG_OPEN, dir.c_str(), NULL, NULL);
 		if (path) {
 			macdr->play[macdr->loader] = false;
-			macdr->loadSample(path);
+			macdr->loadSample(path, macdr->loader);
 			macdr->samplePos[macdr->loader] = 0;
 			macdr->lastPath[macdr->loader] = path;
 			free(path);
 			};
 			
-		macdr->loader=0;
+		macdr->loader=-1;
 		
 		};
 }
@@ -669,12 +697,13 @@ struct SONGDisplay : TransparentWidget {
 	
 	void draw(NVGcontext *vg) {
 	for (int i=0; i<5; i++){
+	  if ((i!=2) & (i!=3)){
 		if (module->songd[i]){
 			nvgBeginPath(vg);
 			nvgCircle(vg, 0,0+i*15, 4.8);
 			nvgFillColor(vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
 			nvgFill(vg);
-		}
+		}}
 		}
 
 	}

@@ -103,6 +103,12 @@ json_t *toJson() override {
 		// loop_state
 		json_object_set_new(rootJ, "loop", json_integer(loop_state));
 
+		// song_state
+		json_object_set_new(rootJ, "song", json_integer(song_state));
+
+		// ON_STATE
+		json_object_set_new(rootJ, "on", json_integer(ON_STATE));
+
 		// leds
 		json_t *ledsJ = json_array();
 		for (int i = 0; i < 16384; i++) {
@@ -162,6 +168,20 @@ json_t *toJson() override {
 		if (loopJ)
 			loop_state = json_integer_value(loopJ);
 
+		// song_state
+		json_t *songJ = json_object_get(rootJ, "song");
+		if (songJ)
+			song_state = json_integer_value(songJ);
+		if (song_state == 2) {
+			song_pos=0;pas=0;
+			measure = song_m[song_pos];
+			group = song_g[song_pos];
+			}
+
+		// ON_STATE
+		json_t *onJ = json_object_get(rootJ, "on");
+		if (onJ)
+			ON_STATE = json_integer_value(onJ);
 
 		// leds
 		json_t *ledsJ = json_object_get(rootJ, "leds");
@@ -244,9 +264,12 @@ if (inputs[UP_INPUT].active!=true) {
 /////////////////////////////////////////////////////////////////////INPUTS
 	if (rstTrigger.process(inputs[RST_INPUT].value))
 			{
-			pas = 0; song_pos=0;
-			measure = song_m[song_pos];
-			group = song_g[song_pos];
+			pas = 0; 
+			if (song_state==2) {
+				song_pos=0;
+				measure = song_m[song_pos];
+				group = song_g[song_pos];
+				}
 			toc = 47u;toc_phase = 1.f;
 			}
 
@@ -321,12 +344,14 @@ if (inputs[UP_INPUT].active!=true) {
 			if (songTrigger[1].process(params[SONG_PARAM+1].value)) {
 					if (song_end!=0) {
 							if (song_state !=2) {
-								song_state=2;
-								ON_STATE=1;
-								song_pos=0;
+								if ((ON_STATE==0) & (inputs[UP_INPUT].active!=true)) {
 								pas=0;
+								song_pos=0;
 								measure = song_m[song_pos];
 								group = song_g[song_pos];
+								} else song_pos=-1;
+								song_state=2;
+								ON_STATE=1;
 							} else {song_state=0;ON_STATE=0;};
 							};
 					};
@@ -349,7 +374,7 @@ if (inputs[UP_INPUT].active!=true) {
 
 			if (playTrigger.process(params[PLAY_PARAM].value)) {
 					if (ON_STATE == 0) {ON_STATE = 1;pas=0;} 
-						else {ON_STATE = 0; if (song_state==2) song_state=0;};
+						else {if (song_state==2) song_state=0; else ON_STATE = 0;};
 					};
 			if (lapinTrigger.process(params[LAPIN_PARAM].value)) {
 					if (tempi_ind<29) tempi_ind+=1 ;  
@@ -627,7 +652,9 @@ rackdrums_trigWidget::rackdrums_trigWidget(rackdrums_trig *module) : ModuleWidge
 
 	for (int i = 0; i < 5; i++) {
      		addParam(ParamWidget::create<LButton>(Vec(72-1,i*15-1.0+143), module, rackdrums_trig::SONG_PARAM + (i), 0.0, 1.0, 0.0));
+if ((i!=2) & (i!=3)){
 		addChild(ModuleLightWidget::create<MediumLight<MyBlackValueLight>>(Vec(72,i*15+143), module, rackdrums_trig::SONG_LIGHT + (i)));
+}
 	}
 
 
