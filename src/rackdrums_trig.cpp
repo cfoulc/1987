@@ -1,5 +1,5 @@
-#include "1987.hpp"
-#include "dsp/digital.hpp"
+#include "plugin.hpp"
+//#include "dsp/digital.hpp"
 
 
 struct rackdrums_trig : Module {
@@ -58,20 +58,20 @@ int song_pos = 0 ;
 int song_end = 0 ;
 int song_m[1000] = {};
 int song_g[1000] = {};
-SchmittTrigger rstTrigger;
-SchmittTrigger upTrigger;
-SchmittTrigger onTrigger;
-SchmittTrigger ledTrigger[256] ={};
-SchmittTrigger BMTrigger[16] ={};
-SchmittTrigger groupTrigger[4] ={};
-SchmittTrigger endTrigger[16] ={};
-SchmittTrigger copyTrigger;
-SchmittTrigger pastTrigger;
-SchmittTrigger clearTrigger;
-SchmittTrigger songTrigger[5]={};
-SchmittTrigger playTrigger;
-SchmittTrigger lapinTrigger;
-SchmittTrigger tortueTrigger;
+dsp::SchmittTrigger rstTrigger;
+dsp::SchmittTrigger upTrigger;
+dsp::SchmittTrigger onTrigger;
+dsp::SchmittTrigger ledTrigger[256] ={};
+dsp::SchmittTrigger BMTrigger[16] ={};
+dsp::SchmittTrigger groupTrigger[4] ={};
+dsp::SchmittTrigger endTrigger[16] ={};
+dsp::SchmittTrigger copyTrigger;
+dsp::SchmittTrigger pastTrigger;
+dsp::SchmittTrigger clearTrigger;
+dsp::SchmittTrigger songTrigger[5]={};
+dsp::SchmittTrigger playTrigger;
+dsp::SchmittTrigger lapinTrigger;
+dsp::SchmittTrigger tortueTrigger;
 int tempi[30] = {30,31,32,33,34,36,37,39,40,42,45,27,50,52,56,60,64,69,75,81,90,100,112,128,150,180,225,300,450,900};
 int tempi_ind = 23 ;
 
@@ -79,10 +79,32 @@ int tempi_ind = 23 ;
 
 
 
-	rackdrums_trig() : Module(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS) {}
-	void step() override;
+	rackdrums_trig() {
+		config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS);
+		for (int i = 0; i < 256; i++) {
+			configParam(ON_PARAM+i, 0.0, 1.0, 0.0, "On");}
+		for (int i = 0; i < 16; i++) {
+			configParam(BM_PARAM+i, 0.0, 1.0, 0.0, "Bm");}
+		for (int i = 0; i < 16; i++) {
+			configParam(END_PARAM+i, 0.0, 1.0, 0.0, "End");}
+		for (int i = 0; i < 4; i++) {
+			configParam(GROUP_PARAM+i, 0.0, 1.0, 0.0, "Group");}
+		for (int i = 0; i < 5; i++) {
+			configParam(SONG_PARAM+i, 0.0, 1.0, 0.0, "Song");}
+		configParam(LAPIN_PARAM, 0.0, 1.0, 0.0, "Lapin");
+		configParam(TORTUE_PARAM, 0.0, 1.0, 0.0, "Tortue");
+		configParam(COPY_PARAM, 0.0, 1.0, 0.0, "Copy");
+		configParam(PASTE_PARAM, 0.0, 1.0, 0.0, "Past");
+		configParam(CLEAR_PARAM, 0.0, 1.0, 0.0, "clear");
+		configParam(INFO_PARAM, 0.0, 1.0, 0.0, "Info");
+		configParam(PLAY_PARAM, 0.0, 1.0, 0.0, "Play");
 
-json_t *toJson() override {
+		onReset();
+
+}
+
+
+json_t *dataToJson() override {
 		json_t *rootJ = json_object();
 
 		// tempi_ind
@@ -136,7 +158,7 @@ json_t *toJson() override {
 		return rootJ;
 	}
 
-	void fromJson(json_t *rootJ) override {
+	void dataFromJson(json_t *rootJ) override {
 
 		// tempi_ind
 		json_t *tempJ = json_object_get(rootJ, "temp");
@@ -215,7 +237,7 @@ json_t *toJson() override {
 
 	}
 
-	void reset() override {
+	void onReset() override {
 		for (int i = 0; i < 16384; i++) {
 			ledState[i] = false;
 		}
@@ -226,16 +248,16 @@ json_t *toJson() override {
 		tempi_ind=23;
 	}
 
-	void randomize() override {
+	void onRandomize() override {
 		//for (int i = 0; i < 16384; i++) {
 		//	ledState[i] = (randomUniform() > 0.5);
 		//}
 	}
 
-};
 
 
-void rackdrums_trig::step() {
+
+void process(const ProcessArgs &args) override {
 
 /////////////////////////////////////////////////////////////////////CLOCK
 if (inputs[UP_INPUT].active!=true) {
@@ -244,7 +266,7 @@ if (inputs[UP_INPUT].active!=true) {
 	bool toced = false;
 
 	if (ON_STATE) {
-		toc_phase += ((bpm / 60.f) / engineGetSampleRate()) * 12.f;
+		toc_phase += ((bpm / 60.f) * args.sampleTime) * 12.f;
 		
 		if(toc_phase >= 1.f) {
 			toced = true;
@@ -412,82 +434,91 @@ if (inputs[UP_INPUT].active!=true) {
 
 
 }
+};
 
 
-struct LButton : SVGSwitch, MomentarySwitch {
+struct LButton : app::SvgSwitch {
 	LButton() {
-		addFrame(SVG::load(assetPlugin(plugin, "res/L.svg")));
-		addFrame(SVG::load(assetPlugin(plugin, "res/Ld.svg")));
-		sw->wrap();
-		box.size = sw->box.size;
+		momentary = true;
+shadow->visible = false;
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/L.svg")));
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/Ld.svg")));
 	}
 };
 
-struct ENDButton : SVGSwitch, MomentarySwitch {
+struct ENDButton : app::SvgSwitch {
 	ENDButton() {
-		addFrame(SVG::load(assetPlugin(plugin, "res/end.svg")));
-		addFrame(SVG::load(assetPlugin(plugin, "res/end.svg")));
-		sw->wrap();
-		box.size = sw->box.size;
+		momentary = true;
+shadow->visible = false;
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/end.svg")));
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/end.svg")));
 	}
 };
 
-struct COPYButton : SVGSwitch, MomentarySwitch {
+struct COPYButton : app::SvgSwitch {
 	COPYButton() {
-		addFrame(SVG::load(assetPlugin(plugin, "res/copy.svg")));
-		addFrame(SVG::load(assetPlugin(plugin, "res/copyd.svg")));
-		sw->wrap();
-		box.size = sw->box.size;
+		momentary = true;
+shadow->visible = false;
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/copy.svg")));
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/copyd.svg")));
 	}
 };
-struct PASTEButton : SVGSwitch, MomentarySwitch {
+
+struct PASTEButton : app::SvgSwitch {
 	PASTEButton() {
-		addFrame(SVG::load(assetPlugin(plugin, "res/paste.svg")));
-		addFrame(SVG::load(assetPlugin(plugin, "res/pasted.svg")));
-		sw->wrap();
-		box.size = sw->box.size;
+		momentary = true;
+shadow->visible = false;
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/paste.svg")));
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/pasted.svg")));
 	}
 };
-struct CLEARButton : SVGSwitch, MomentarySwitch {
+
+struct CLEARButton : app::SvgSwitch {
 	CLEARButton() {
-		addFrame(SVG::load(assetPlugin(plugin, "res/clear.svg")));
-		addFrame(SVG::load(assetPlugin(plugin, "res/cleard.svg")));
-		sw->wrap();
-		box.size = sw->box.size;
+		momentary = true;
+shadow->visible = false;
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/clear.svg")));
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/cleard.svg")));
 	}
 };
-struct INFOButton : SVGSwitch, MomentarySwitch {
+
+struct INFOButton : app::SvgSwitch {
 	INFOButton() {
-		addFrame(SVG::load(assetPlugin(plugin, "res/info.svg")));
-		addFrame(SVG::load(assetPlugin(plugin, "res/infod.svg")));
-		sw->wrap();
-		box.size = sw->box.size;
+		momentary = true;
+shadow->visible = false;
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/info.svg")));
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/infod.svg")));
 	}
 };
-struct LAPINButton : SVGSwitch, MomentarySwitch {
+
+struct LAPINButton : app::SvgSwitch {
 	LAPINButton() {
-		addFrame(SVG::load(assetPlugin(plugin, "res/lapin.svg")));
-		addFrame(SVG::load(assetPlugin(plugin, "res/lapind.svg")));
-		sw->wrap();
-		box.size = sw->box.size;
+		momentary = true;
+shadow->visible = false;
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/lapin.svg")));
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/lapind.svg")));
 	}
 };
-struct TORTUEButton : SVGSwitch, MomentarySwitch {
+
+struct TORTUEButton : app::SvgSwitch {
 	TORTUEButton() {
-		addFrame(SVG::load(assetPlugin(plugin, "res/tortue.svg")));
-		addFrame(SVG::load(assetPlugin(plugin, "res/tortued.svg")));
-		sw->wrap();
-		box.size = sw->box.size;
+		momentary = true;
+shadow->visible = false;
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/tortue.svg")));
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/tortued.svg")));
 	}
 };
-struct PLAYButton : SVGSwitch, MomentarySwitch {
+
+struct PLAYButton : app::SvgSwitch {
 	PLAYButton() {
-		addFrame(SVG::load(assetPlugin(plugin, "res/play.svg")));
-		addFrame(SVG::load(assetPlugin(plugin, "res/playd.svg")));
-		sw->wrap();
-		box.size = sw->box.size;
+		momentary = true;
+shadow->visible = false;
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/play.svg")));
+		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance, "res/playd.svg")));
 	}
 };
+
+
 
 
 struct MyBlackValueLight : ModuleLightWidget {
@@ -497,20 +528,22 @@ struct MyBlackValueLight : ModuleLightWidget {
 	}
 };
 
-struct NumDisplayWidget : TransparentWidget {
+///////////////////////////////////////////////////DISPLAYS
 
+struct NumDisplayWidget : TransparentWidget {
+rackdrums_trig *module;
   int *value;
   std::shared_ptr<Font> font;
 
   NumDisplayWidget() {
-    font = Font::load(assetPlugin(plugin, "res/Segment7Standard.ttf"));
+    font = APP->window->loadFont(asset::plugin(pluginInstance, "res/Segment7Standard.ttf"));
   };
 
-  void draw(NVGcontext *vg) {
-
-    nvgFontSize(vg, 24);
-    nvgFontFaceId(vg, font->handle);
-    nvgTextLetterSpacing(vg, 0);
+void draw(const DrawArgs &args) override {
+if (module) {
+    nvgFontSize(args.vg, 24);
+    nvgFontFaceId(args.vg, font->handle);
+    nvgTextLetterSpacing(args.vg, 0);
 
     std::string to_display = std::to_string(*value);
 
@@ -521,189 +554,197 @@ struct NumDisplayWidget : TransparentWidget {
 
     NVGcolor textColor = nvgRGB(0x00, 0x00, 0x00);
 
-    nvgFillColor(vg, textColor);
-    nvgText(vg, textPos.x, textPos.y, to_display.c_str(), NULL);};
+    nvgFillColor(args.vg, textColor);
+    nvgText(args.vg, textPos.x, textPos.y, to_display.c_str(), NULL);};
+}
   
 };
 
 struct ARROWEDDisplay : TransparentWidget {
-
+rackdrums_trig *module;
 	float *enda ;
 
 	ARROWEDDisplay() {
 		
 	}
 	
-	void draw(NVGcontext *vg) {
-
+	void draw(const DrawArgs &args) override {
+if (module) {
 
 		
-			nvgBeginPath(vg);
+			nvgBeginPath(args.vg);
 	
 		
-			nvgStrokeWidth(vg,2);
-			nvgStrokeColor(vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
+			nvgStrokeWidth(args.vg,2);
+			nvgStrokeColor(args.vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
 			{
-				nvgBeginPath(vg);
-				nvgMoveTo(vg, 0+*enda*18,-2);
-				nvgLineTo(vg, 0+*enda*18,5);
-				nvgLineTo(vg, 0+*enda*18-5,5);
-				nvgLineTo(vg, 0+*enda*18-3,2);
+				nvgBeginPath(args.vg);
+				nvgMoveTo(args.vg, 0+*enda*18,-2);
+				nvgLineTo(args.vg, 0+*enda*18,5);
+				nvgLineTo(args.vg, 0+*enda*18-5,5);
+				nvgLineTo(args.vg, 0+*enda*18-3,2);
 			}
-			nvgStroke(vg);
+			nvgStroke(args.vg);
 		
 
 	}
+}
 };
 
 struct MNDisplay : TransparentWidget {
-
+rackdrums_trig *module;
 	float *visible ;
 
 	MNDisplay() {
 		
 	}
 	
-	void draw(NVGcontext *vg) {
+	void draw(const DrawArgs &args) override {
+if (module) {
 			if (*visible!=0) {
 		    	NVGcolor backgroundColor = nvgRGB(0xff, 0xff, 0xff);
-			nvgBeginPath(vg);
-			nvgRoundedRect(vg, -4, 2, 20, -24, 2.0);
-			nvgFillColor(vg, backgroundColor);
-			nvgFill(vg);
+			nvgBeginPath(args.vg);
+			nvgRoundedRect(args.vg, -4, 2, 20, -24, 2.0);
+			nvgFillColor(args.vg, backgroundColor);
+			nvgFill(args.vg);
 		
-			nvgBeginPath(vg);
+			nvgBeginPath(args.vg);
 	
 
-			nvgStrokeWidth(vg,3);
-			nvgStrokeColor(vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
+			nvgStrokeWidth(args.vg,3);
+			nvgStrokeColor(args.vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
 			{
-				nvgBeginPath(vg);
-				nvgMoveTo(vg, 0,-1);
-				nvgLineTo(vg, 0,-17);
-				nvgLineTo(vg, 6,-13);
-				nvgLineTo(vg, 12,-17);
-				nvgLineTo(vg, 12,-1);
+				nvgBeginPath(args.vg);
+				nvgMoveTo(args.vg, 0,-1);
+				nvgLineTo(args.vg, 0,-17);
+				nvgLineTo(args.vg, 6,-13);
+				nvgLineTo(args.vg, 12,-17);
+				nvgLineTo(args.vg, 12,-1);
 			}
-			nvgStroke(vg);
+			nvgStroke(args.vg);
 			}
 		
 
 	}
+}
 };
 
 struct PLAYDisplay : TransparentWidget {
-
+rackdrums_trig *module;
 	float *visible ;
 
 	PLAYDisplay() {
 		
 	}
 	
-	void draw(NVGcontext *vg) {
+	void draw(const DrawArgs &args) override {
+if (module) {
 			if (*visible!=0) {
-			nvgBeginPath(vg);
-			nvgCircle(vg, 0,0, 23);
-			nvgStrokeWidth(vg,2);
-			nvgStrokeColor(vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
-			nvgStroke(vg);
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, 0,0, 23);
+			nvgStrokeWidth(args.vg,2);
+			nvgStrokeColor(args.vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
+			nvgStroke(args.vg);
 			}
-		
+		}
 
 	}
 };
 
 
 struct rackdrums_trigWidget : ModuleWidget {
-	rackdrums_trigWidget(rackdrums_trig *module);
-};
+	rackdrums_trigWidget(rackdrums_trig *module) {
+setModule(module);
+		setPanel(APP->window->loadSvg(asset::plugin(pluginInstance, "res/rackdrums_trig.svg")));
 
-rackdrums_trigWidget::rackdrums_trigWidget(rackdrums_trig *module) : ModuleWidget(module) {
-	setPanel(SVG::load(assetPlugin(plugin, "res/rackdrums_trig.svg")));
 
-	addChild(Widget::create<ScrewSilver>(Vec(15, 0)));
-	addChild(Widget::create<ScrewSilver>(Vec(box.size.x-30, 0)));
-	addChild(Widget::create<ScrewSilver>(Vec(15, 365)));
-	addChild(Widget::create<ScrewSilver>(Vec(box.size.x-30, 365)));
+	addChild(createWidget<ScrewSilver>(Vec(15, 0)));
+	addChild(createWidget<ScrewSilver>(Vec(box.size.x-30, 0)));
+	addChild(createWidget<ScrewSilver>(Vec(15, 365)));
+	addChild(createWidget<ScrewSilver>(Vec(box.size.x-30, 365)));
 
 
 
 
 	for (int i = 0; i < 16; i++) {
 	for (int j = 0; j < 16; j++) {
-     		addParam(ParamWidget::create<LButton>(Vec(136+i*18-1.0,j*18+30-1), module, rackdrums_trig::ON_PARAM + (i*16+j), 0.0, 1.0, 0.0));
-		addChild(ModuleLightWidget::create<MediumLight<MyBlackValueLight>>(Vec(136+i*18, j*18+30), module, rackdrums_trig::LED_LIGHT + (i*16+j)));
+     		addParam(createParam<LButton>(Vec(136+i*18-1.0,j*18+30-1), module, rackdrums_trig::ON_PARAM + (i*16+j)));
+		addChild(createLight<MediumLight<MyBlackValueLight>>(Vec(136+i*18, j*18+30), module, rackdrums_trig::LED_LIGHT + (i*16+j)));
 	}}
 
 	for (int i = 0; i < 16; i++) {
-     		addParam(ParamWidget::create<LButton>(Vec(136+i*18-1.0,338-1), module, rackdrums_trig::BM_PARAM + (i), 0.0, 1.0, 0.0));
-		addChild(ModuleLightWidget::create<MediumLight<MyBlackValueLight>>(Vec(136+i*18, 338), module, rackdrums_trig::BM_LIGHT + (i)));
-		addChild(ModuleLightWidget::create<MediumLight<MyBlackValueLight>>(Vec(136+i*18, 338), module, rackdrums_trig::MEAS_LIGHT + (i)));
+     		addParam(createParam<LButton>(Vec(136+i*18-1.0,338-1), module, rackdrums_trig::BM_PARAM + (i)));
+		addChild(createLight<MediumLight<MyBlackValueLight>>(Vec(136+i*18, 338), module, rackdrums_trig::BM_LIGHT + (i)));
+		addChild(createLight<MediumLight<MyBlackValueLight>>(Vec(136+i*18, 338), module, rackdrums_trig::MEAS_LIGHT + (i)));
 	}
 
 	for (int i = 0; i < 16; i++) {
-     		addParam(ParamWidget::create<ENDButton>(Vec(136+i*18-1.0,321-1), module, rackdrums_trig::END_PARAM + (i), 0.0, 1.0, 0.0));
+     		addParam(createParam<ENDButton>(Vec(136+i*18-1.0,321-1), module, rackdrums_trig::END_PARAM + (i)));
 	}
 
 	for (int i = 0; i < 4; i++) {
-     		addParam(ParamWidget::create<LButton>(Vec(i*24-1.0+25,338-1), module, rackdrums_trig::GROUP_PARAM + (i), 0.0, 1.0, 0.0));
-		addChild(ModuleLightWidget::create<MediumLight<MyBlackValueLight>>(Vec(i*24+25, 338), module, rackdrums_trig::GROUP_LIGHT + (i)));
+     		addParam(createParam<LButton>(Vec(i*24-1.0+25,338-1), module, rackdrums_trig::GROUP_PARAM + (i)));
+		addChild(createLight<MediumLight<MyBlackValueLight>>(Vec(i*24+25, 338), module, rackdrums_trig::GROUP_LIGHT + (i)));
 	}
 
 	for (int i = 0; i < 5; i++) {
-     		addParam(ParamWidget::create<LButton>(Vec(72-1,i*15-1.0+143), module, rackdrums_trig::SONG_PARAM + (i), 0.0, 1.0, 0.0));
+     		addParam(createParam<LButton>(Vec(72-1,i*15-1.0+143), module, rackdrums_trig::SONG_PARAM + (i)));
 if ((i!=2) & (i!=3)){
-		addChild(ModuleLightWidget::create<MediumLight<MyBlackValueLight>>(Vec(72,i*15+143), module, rackdrums_trig::SONG_LIGHT + (i)));
+		addChild(createLight<MediumLight<MyBlackValueLight>>(Vec(72,i*15+143), module, rackdrums_trig::SONG_LIGHT + (i)));
 }
 	}
 
 
-	addParam(ParamWidget::create<LAPINButton>(Vec(55,74), module, rackdrums_trig::LAPIN_PARAM, 0.0, 1.0, 0.0));
-	addParam(ParamWidget::create<TORTUEButton>(Vec(15,74), module, rackdrums_trig::TORTUE_PARAM, 0.0, 1.0, 0.0));
+	addParam(createParam<LAPINButton>(Vec(55,74), module, rackdrums_trig::LAPIN_PARAM));
+	addParam(createParam<TORTUEButton>(Vec(15,74), module, rackdrums_trig::TORTUE_PARAM));
 
 
 	{
 		ARROWEDDisplay *pdisplay = new ARROWEDDisplay();
 		pdisplay->box.pos = Vec(143, 324);
 		pdisplay->enda = &module->end;
+		pdisplay->module = module;
 		addChild(pdisplay);
 	}
 	{
 		MNDisplay *mdisplay = new MNDisplay();
 		mdisplay->box.pos = Vec(18, 57);
 		mdisplay->visible = &module->m_visible;
+		mdisplay->module = module;
 		addChild(mdisplay);
 	}
 	{
 		PLAYDisplay *playdisplay = new PLAYDisplay();
 		playdisplay->box.pos = Vec(62.7, 290.5);
 		playdisplay->visible = &module->play_visible;
+		playdisplay->module = module;
 		addChild(playdisplay);
 	}
 
-	addParam(ParamWidget::create<COPYButton>(Vec(37,2), module, rackdrums_trig::COPY_PARAM, 0.0, 1.0, 0.0));
-	addParam(ParamWidget::create<PASTEButton>(Vec(80,2), module, rackdrums_trig::PASTE_PARAM, 0.0, 1.0, 0.0));
-	addParam(ParamWidget::create<CLEARButton>(Vec(127,2), module, rackdrums_trig::CLEAR_PARAM, 0.0, 1.0, 0.0));
-	addParam(ParamWidget::create<INFOButton>(Vec(187,2), module, rackdrums_trig::INFO_PARAM, 0.0, 1.0, 0.0));
+	addParam(createParam<COPYButton>(Vec(37,2), module, rackdrums_trig::COPY_PARAM));
+	addParam(createParam<PASTEButton>(Vec(80,2), module, rackdrums_trig::PASTE_PARAM));
+	addParam(createParam<CLEARButton>(Vec(127,2), module, rackdrums_trig::CLEAR_PARAM));
+	addParam(createParam<INFOButton>(Vec(187,2), module, rackdrums_trig::INFO_PARAM));
 
-	addParam(ParamWidget::create<PLAYButton>(Vec(10,235), module, rackdrums_trig::PLAY_PARAM, 0.0, 1.0, 0.0));
+	addParam(createParam<PLAYButton>(Vec(10,235), module, rackdrums_trig::PLAY_PARAM));
 
 	NumDisplayWidget *display = new NumDisplayWidget();
 	display->box.pos = Vec(39,39);
 	display->box.size = Vec(50, 20);
 	display->value = &module->affichnum;
+	display->module = module;
 	addChild(display);
 
-	addInput(Port::create<PJ301MPort>(Vec(25, 100), Port::INPUT, module, rackdrums_trig::RST_INPUT));
-	addInput(Port::create<PJ301MPort>(Vec(67, 100), Port::INPUT, module, rackdrums_trig::UP_INPUT));  
+	addInput(createInput<PJ301MPort>(Vec(25, 100), module, rackdrums_trig::RST_INPUT));
+	addInput(createInput<PJ301MPort>(Vec(67, 100), module, rackdrums_trig::UP_INPUT));  
 
 
 	for (int i = 0; i < 16; i++) {
-		addOutput(Port::create<PJ301MPort>(Vec(435+i%2*40, 23+i*18), Port::OUTPUT, module, rackdrums_trig::TR_OUTPUT +i));
+		addOutput(createOutput<PJ301MPort>(Vec(435+i%2*40, 23+i*18), module, rackdrums_trig::TR_OUTPUT +i));
 	}
 
 	
 }
-
-Model *modelrackdrums_trig = Model::create<rackdrums_trig, rackdrums_trigWidget>("1987", "rackdrums_trig", "RackDrums trig", SEQUENCER_TAG);
+};
+Model *modelrackdrums_trig =createModel<rackdrums_trig, rackdrums_trigWidget>("rackdrums_trig");
 
