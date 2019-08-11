@@ -1,0 +1,32 @@
+{
+  "slug": "1987",
+  "version": "1.0.0",
+  "license": "BSD-3-Clause",
+  "name": "1987",
+  "brand": "1987",
+  "author": "clement foulc",
+  "authorEmail": "c.foulc@gmail.com",
+  "pluginUrl": "https://github.com/cfoulc/1987",
+  "authorUrl": "https://github.com/cfoulc/1987",
+  "manualUrl": "https://github.com/cfoulc/1987",
+  "sourceUrl": "https://github.com/cfoulc/1987",
+  "changelogUrl": "https://github.com/cfoulc/1987",
+  "modules": [
+    {
+      "slug": "rackdrums",
+      "name": "rackdrums",
+      "description": "Old school software",
+      "tags": [
+        "SEQUENCER"
+      ]
+    },
+    {
+      "slug": "rackdrums_trig",
+      "name": "rackdrums_trig",
+      "description": "Old school software",
+      "tags": [
+        "SEQUENCER"
+      ]
+    }
+  ]
+}
