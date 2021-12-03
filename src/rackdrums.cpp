@@ -4,7 +4,8 @@
 #include "dr_wav.h"
 #include <vector>
 #include "cmath"
-
+#include <libgen.h>
+#include <dirent.h>
 using namespace std;
 
 
@@ -318,7 +319,10 @@ void loadSample(std::string xpath, int loa) {
 
 		totalSampleCount[loa] = rdrBuffer[loa].size();
 		fileLoaded[loa] = true;
-		fileDesc[loa] = rack::string::filename(xpath);
+		//fileDesc[loa] = rack::string::filename(xpath);
+			char* pathDup = strdup(xpath.c_str());
+			fileDesc[loa] = basename(pathDup);
+			free(pathDup);
 //		lastPath[loa] = xpath;
 	}
 
@@ -688,6 +692,7 @@ struct LOADsampleButton : app::SvgSwitch {
 
 	void onDragStart(const event::DragStart &e)
 	{
+ParamQuantity* paramQuantity = getParamQuantity();
 		rackdrums *module = dynamic_cast<rackdrums *>(paramQuantity->module);
 
 		if (module) 
@@ -823,10 +828,11 @@ struct NumDisplayWidget : TransparentWidget {
   std::shared_ptr<Font> font;
 
   NumDisplayWidget() {
-        font = APP->window->loadFont(asset::plugin(pluginInstance, "res/Segment7Standard.ttf"));
+        //font = APP->window->loadFont(asset::plugin(pluginInstance, "res/Segment7Standard.ttf"));
   };
 
 	void draw(const DrawArgs &args) override {
+shared_ptr<Font> font = APP->window->loadFont(asset::plugin(pluginInstance, "res/Segment7Standard.ttf"));
 if (module) {
 
     nvgFontSize(args.vg, 24);
@@ -926,11 +932,12 @@ struct rackdrumsDisplay : TransparentWidget {
 	shared_ptr<Font> font;
 
 	rackdrumsDisplay() {
-font = APP->window->loadFont(asset::plugin(pluginInstance, "res/Silom.ttf"));
+//font = APP->window->loadFont(asset::plugin(pluginInstance, "res/Silom.ttf"));
 	}
 	
 	void draw(const DrawArgs &args) override {
 if (module) {
+shared_ptr<Font> font = APP->window->loadFont(asset::plugin(pluginInstance, "res/Silom.ttf"));
 		nvgFontSize(args.vg, 14);
 		nvgFontFaceId(args.vg, font->handle);
 		nvgTextLetterSpacing(args.vg, 0);

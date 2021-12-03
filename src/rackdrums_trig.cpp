@@ -1,5 +1,6 @@
 #include "plugin.hpp"
 //#include "dsp/digital.hpp"
+using namespace std;
 
 
 struct rackdrums_trig : Module {
@@ -536,11 +537,15 @@ rackdrums_trig *module;
   std::shared_ptr<Font> font;
 
   NumDisplayWidget() {
-    font = APP->window->loadFont(asset::plugin(pluginInstance, "res/Segment7Standard.ttf"));
+    //font = APP->window->loadFont(asset::plugin(pluginInstance, "res/Segment7Standard.ttf"));
   };
 
 void draw(const DrawArgs &args) override {
+
+shared_ptr<Font> font = APP->window->loadFont(asset::plugin(pluginInstance, "res/Segment7Standard.ttf"));
+
 if (module) {
+
     nvgFontSize(args.vg, 24);
     nvgFontFaceId(args.vg, font->handle);
     nvgTextLetterSpacing(args.vg, 0);
