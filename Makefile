@@ -1,9 +1,6 @@
-SLUG = 1987
-VERSION = 0.6.2
-
 SOURCES += $(wildcard src/*.cpp)
 
 DISTRIBUTABLES += $(wildcard LICENSE*) res
 
-RACK_DIR ?= ../..
+RACK_DIR ?= ../Rack-SDK
 include $(RACK_DIR)/plugin.mk
