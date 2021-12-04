@@ -28,14 +28,8 @@ struct rackdrums_trig : Module {
 		TR_OUTPUT,
 		NUM_OUTPUTS = TR_OUTPUT + 16
 	};
-    enum LightIds {
-		EDIT_LIGHT,
-		SONG_LIGHT,
-		GROUP_LIGHT = SONG_LIGHT + 5,
-		BM_LIGHT = GROUP_LIGHT + 4,
-		MEAS_LIGHT = BM_LIGHT + 16,
-		LED_LIGHT = MEAS_LIGHT +16,		
-		NUM_LIGHTS = LED_LIGHT + 256
+    enum LightIds {		
+		NUM_LIGHTS
 	};
 
 
@@ -75,6 +69,8 @@ dsp::SchmittTrigger lapinTrigger;
 dsp::SchmittTrigger tortueTrigger;
 int tempi[30] = {30,31,32,33,34,36,37,39,40,42,45,27,50,52,56,60,64,69,75,81,90,100,112,128,150,180,225,300,450,900};
 int tempi_ind = 23 ;
+bool lig[256] ;
+bool measd[16], groud[4], stepd[16], songd[5] ; 
 
 
 
@@ -410,17 +406,18 @@ if (inputs[UP_INPUT].active!=true) {
 
 
 ///////////////////////////////////////affichage
-	for (int i = 0; i < 256; i++) {lights[LED_LIGHT +i].value=ledState[i+group*4096+measure*256];}
+	for (int i = 0; i < 256; i++) {lig[i]=ledState[i+group*4096+measure*256];}
 
-	for (int i = 0; i < 16; i++) {if ((i==pas) and ((ON_STATE) or (inputs[UP_INPUT].active))) lights[BM_LIGHT +i].value=1; else lights[BM_LIGHT +i].value=0;}
+	for (int i = 0; i < 16; i++) {if ((i==pas) and ((ON_STATE) or (inputs[UP_INPUT].active))) stepd[i]=1; else stepd[i]=0;}
 
-	for (int i = 0; i < 16; i++) {if (i==measure) lights[MEAS_LIGHT +i].value=1;else lights[MEAS_LIGHT +i].value=0;}
+	for (int i = 0; i < 16; i++) {if (i==measure) measd[i]=1;else measd[i]=0;}
 
-	for (int i = 0; i < 4; i++) {if (i==group) lights[GROUP_LIGHT +i].value=1;else lights[GROUP_LIGHT +i].value=0;}
+	for (int i = 0; i < 4; i++) {if (i==group) groud[i]=1;else groud[i]=0;}
 
-	for (int i = 0; i < 2; i++) {if (song_state == i+1) lights[SONG_LIGHT +i].value=1;else lights[SONG_LIGHT +i].value=0;}
-					
-	lights[SONG_LIGHT +4].value=loop_state;
+	for (int i = 0; i < 2; i++) {if (song_state == i+1) songd[i]=1;else songd[i]=0;}
+
+	songd[4]=loop_state;
+
 	if (ON_STATE==0) play_visible =0 ; else play_visible =1 ;
 	if (song_state==0) m_visible =0 ; else m_visible =1 ;
 	if (song_state==0) affichnum = tempi[tempi_ind]; ;
@@ -522,14 +519,118 @@ shadow->visible = false;
 
 
 
-struct MyBlackValueLight : ModuleLightWidget {
-	MyBlackValueLight() {
-		firstLightId = 1;
-		addBaseColor(nvgRGB(0, 0, 0));
+///////////////////////////////////////////////////DISPLAYS
+struct GRIDDisplay : TransparentWidget {
+	rackdrums_trig *module;
+
+	GRIDDisplay() {
+		
 	}
+	
+	void draw(const DrawArgs &args) override {
+if (module) {
+	for (int i=0; i<256; i++){
+		if (module->lig[i]){
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, 0+int(i/16)*18,0+ (i%16)*18, 4.8);
+			nvgFillColor(args.vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
+			nvgFill(args.vg);
+		}
+		}
+
+	}
+}
 };
 
-///////////////////////////////////////////////////DISPLAYS
+struct MEASDisplay : TransparentWidget {
+	rackdrums_trig *module;
+
+	MEASDisplay() {
+		
+	}
+	
+	void draw(const DrawArgs &args) override {
+if (module) {
+	for (int i=0; i<16; i++){
+		if (module->measd[i]){
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, 0+i*18,0, 4.8);
+			nvgFillColor(args.vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
+			nvgFill(args.vg);
+		}
+		}
+
+	}
+}
+};
+
+struct GROUDisplay : TransparentWidget {
+	rackdrums_trig *module;
+
+	GROUDisplay() {
+		
+	}
+	
+	void draw(const DrawArgs &args) override {
+if (module) {
+	for (int i=0; i<4; i++){
+		if (module->groud[i]){
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, 0+i*24,0, 4.8);
+			nvgFillColor(args.vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
+			nvgFill(args.vg);
+		}
+		}
+
+	}
+}
+};
+
+struct SONGDisplay : TransparentWidget {
+	rackdrums_trig *module;
+
+	SONGDisplay() {
+		
+	}
+	
+	void draw(const DrawArgs &args) override {
+if (module) {
+	for (int i=0; i<5; i++){
+	  if ((i!=2) & (i!=3)){
+		if (module->songd[i]){
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, 0,0+i*15, 4.8);
+			nvgFillColor(args.vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
+			nvgFill(args.vg);
+		}}
+		}
+
+	}
+}
+};
+
+struct STEPDisplay : TransparentWidget {
+	rackdrums_trig *module;
+
+	STEPDisplay() {
+		
+	}
+	
+	void draw(const DrawArgs &args) override {
+if (module) {
+	for (int i=0; i<16; i++){
+		if (module->stepd[i]){
+			nvgBeginPath(args.vg);
+			nvgCircle(args.vg, 0+i*18,0, 4.8);
+			nvgFillColor(args.vg, nvgRGBA(0x00, 0x00, 0x00, 0xff));
+			nvgFill(args.vg);
+		}
+		}
+
+	}
+}
+};
+
 
 struct NumDisplayWidget : TransparentWidget {
 rackdrums_trig *module;
@@ -674,13 +775,10 @@ setModule(module);
 	for (int i = 0; i < 16; i++) {
 	for (int j = 0; j < 16; j++) {
      		addParam(createParam<LButton>(Vec(136+i*18-1.0,j*18+30-1), module, rackdrums_trig::ON_PARAM + (i*16+j)));
-		addChild(createLight<MediumLight<MyBlackValueLight>>(Vec(136+i*18, j*18+30), module, rackdrums_trig::LED_LIGHT + (i*16+j)));
 	}}
 
 	for (int i = 0; i < 16; i++) {
      		addParam(createParam<LButton>(Vec(136+i*18-1.0,338-1), module, rackdrums_trig::BM_PARAM + (i)));
-		addChild(createLight<MediumLight<MyBlackValueLight>>(Vec(136+i*18, 338), module, rackdrums_trig::BM_LIGHT + (i)));
-		addChild(createLight<MediumLight<MyBlackValueLight>>(Vec(136+i*18, 338), module, rackdrums_trig::MEAS_LIGHT + (i)));
 	}
 
 	for (int i = 0; i < 16; i++) {
@@ -689,21 +787,46 @@ setModule(module);
 
 	for (int i = 0; i < 4; i++) {
      		addParam(createParam<LButton>(Vec(i*24-1.0+25,338-1), module, rackdrums_trig::GROUP_PARAM + (i)));
-		addChild(createLight<MediumLight<MyBlackValueLight>>(Vec(i*24+25, 338), module, rackdrums_trig::GROUP_LIGHT + (i)));
 	}
 
 	for (int i = 0; i < 5; i++) {
      		addParam(createParam<LButton>(Vec(72-1,i*15-1.0+143), module, rackdrums_trig::SONG_PARAM + (i)));
-if ((i!=2) & (i!=3)){
-		addChild(createLight<MediumLight<MyBlackValueLight>>(Vec(72,i*15+143), module, rackdrums_trig::SONG_LIGHT + (i)));
-}
 	}
 
 
 	addParam(createParam<LAPINButton>(Vec(55,74), module, rackdrums_trig::LAPIN_PARAM));
 	addParam(createParam<TORTUEButton>(Vec(15,74), module, rackdrums_trig::TORTUE_PARAM));
 
-
+	{
+		GRIDDisplay *grdisplay = new GRIDDisplay();
+		grdisplay->box.pos = Vec(140.7, 34.2);
+		grdisplay->module = module;
+		addChild(grdisplay);
+	}
+	{
+		MEASDisplay *medisplay = new MEASDisplay();
+		medisplay->box.pos = Vec(140.7, 342.7);
+		medisplay->module = module;
+		addChild(medisplay);
+	}
+	{
+		GROUDisplay *groudisplay = new GROUDisplay();
+		groudisplay->box.pos = Vec(29.7, 342.7);
+		groudisplay->module = module;
+		addChild(groudisplay);
+	}
+	{
+		STEPDisplay *stepdisplay = new STEPDisplay();
+		stepdisplay->box.pos = Vec(140.7, 342.7);
+		stepdisplay->module = module;
+		addChild(stepdisplay);
+	}
+	{
+		SONGDisplay *songdisplay = new SONGDisplay();
+		songdisplay->box.pos = Vec(76.7, 147.7);
+		songdisplay->module = module;
+		addChild(songdisplay);
+	}
 	{
 		ARROWEDDisplay *pdisplay = new ARROWEDDisplay();
 		pdisplay->box.pos = Vec(143, 324);
